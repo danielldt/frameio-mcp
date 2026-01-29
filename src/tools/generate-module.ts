@@ -59,18 +59,20 @@ ${indexTs}
 \`\`\`
 
 ### 4. Registry Entry
-Add this to \`modules/.registry.ts\`:
 \`\`\`typescript
 ${registryEntry}
 \`\`\`
+
+**Note:** If you're using the FrameIO CLI (\`npx @frameio/cli create-module\`), the registry entry is added automatically. If generating manually, add this entry to \`modules/.registry.ts\`.
 
 ## Next Steps
 
 1. Create the module directory: \`modules/${moduleId}/\`
 2. Create the \`src/\` subdirectory
 3. Copy the generated files to their respective locations
-4. Add the registry entry to \`modules/.registry.ts\`
+4. **Add the registry entry to \`modules/.registry.ts\`** (or use CLI which does this automatically)
 5. Run \`npm install\` in the module directory
 6. Run \`npm run build\` to compile the module
+7. Restart Docker Compose or development servers to load the module
 `;
 }

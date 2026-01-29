@@ -20,7 +20,14 @@ modules/
 
 ### Module Registration
 
-Modules must be registered in \`modules/.registry.ts\`:
+Modules must be registered in \`modules/.registry.ts\`. 
+
+**Automatic Registration:** The FrameIO CLI automatically adds modules to the registry when you run:
+\`\`\`bash
+npx @frameio/cli create-module my-module
+\`\`\`
+
+**Manual Registration:** If creating modules manually, add to \`modules/.registry.ts\`:
 
 \`\`\`typescript
 export const registeredModules = [
@@ -30,6 +37,8 @@ export const registeredModules = [
   },
 ] as const;
 \`\`\`
+
+**Dynamic Loading:** After adding a module, restart Docker Compose (\`docker-compose restart\`) or development servers to load it.
 
 ### Module Export Convention
 
@@ -389,5 +398,45 @@ export { MyCustomPage } from './MyCustomPage.js';
 \`\`\`
 
 Pages are automatically discovered and registered by the framework.
+
+## Dashboard Widgets
+
+Modules can register custom widgets for the dashboard:
+
+\`\`\`typescript
+import { widget } from '@frameio/sdk';
+
+const widgets = [
+  widget('my-module-stats', 'stat', {
+    title: 'Total Items',
+    entityKey: 'my-module.entity',
+    // Widget data provider registered separately in backend
+  }),
+];
+\`\`\`
+
+Widget types: \`stat\`, \`table\`, \`list\`, \`chart\`
+
+## Development Tools
+
+### Storybook
+FrameIO includes Storybook for component development:
+- Access at \`http://localhost:6006\` when running \`docker-compose up\`
+- Or run locally: \`cd apps/web && npm run storybook\`
+- View isolated component examples and documentation
+
+### Database Migrations
+FrameIO uses a versioned migration system:
+- Migrations in \`apps/api/src/db/migrate.ts\`
+- Version tracking with \`migration_history\` table
+- Rollback support: \`npm run migrate:rollback -w @frameio/api\`
+- Only pending migrations are executed automatically
+
+### Module Discovery
+- Modules are dynamically discovered from \`modules/.registry.ts\`
+- Frontend imports are auto-generated via \`npm run generate:imports\`
+- Vite config is auto-updated via \`npm run generate:vite-config\`
+- Dependencies are auto-synced via \`npm run sync:dependencies\`
+- These run automatically via \`predev\` and \`prebuild\` hooks
 `;
 }

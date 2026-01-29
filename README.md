@@ -253,10 +253,13 @@ tools/frameio-mcp/
 ## Integration with FrameIO Framework
 
 This MCP server integrates with:
-- **Module Registry**: Reads from \`modules/.registry.ts\`
+- **Module Registry**: Reads from \`modules/.registry.ts\` (auto-updated by CLI)
 - **Existing Modules**: Scans \`modules/\` directory for examples
 - **SDK Types**: Uses types from \`platform/sdk/\`
-- **CLI Tools**: Can leverage code from \`tools/frameio-cli/\`
+- **CLI Tools**: Leverages code from \`tools/frameio-cli/\` (which auto-registers modules)
+- **Dynamic Module Loading**: Modules are discovered and loaded at runtime
+- **Storybook**: Component development environment available at port 6006
+- **Migration System**: Versioned database migrations with rollback support
 
 ## Troubleshooting
 

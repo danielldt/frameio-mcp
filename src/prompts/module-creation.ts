@@ -76,8 +76,14 @@ In \`src/index.ts\`:
 
 ## Step 5: Module Registration
 
-Add to \`modules/.registry.ts\`:
+**Option A: Use FrameIO CLI (Recommended)**
+The CLI automatically adds modules to the registry:
+\`\`\`bash
+npx @frameio/cli create-module ${moduleId || 'my-module'}
+\`\`\`
 
+**Option B: Manual Registration**
+Add to \`modules/.registry.ts\`:
 \`\`\`typescript
 export const registeredModules = [
   // ... existing modules
@@ -92,10 +98,13 @@ export const registeredModules = [
 
 1. Run \`npm install\` in module directory
 2. Run \`npm run build\` to compile
-3. Verify module loads without errors
-4. Test entity CRUD operations
-5. Verify navigation appears correctly
-6. Test command palette entries
+3. **Restart Docker Compose** (\`docker-compose restart\`) or development servers
+4. Verify module loads without errors
+5. Test entity CRUD operations
+6. Verify navigation appears correctly
+7. Test command palette entries
+
+**Note:** Modules are dynamically loaded. After creating a module, restart the platform to see it.
 
 ## Common Patterns
 
@@ -150,8 +159,9 @@ Before completing, verify:
 - [ ] Entity keys follow \`{module-id}.{entity-name}\` format
 - [ ] All entities have permissions defined
 - [ ] Navigation items configured
-- [ ] Registry entry added
+- [ ] Registry entry added (or use CLI which does this automatically)
 - [ ] TypeScript compiles without errors
+- [ ] Module appears after restarting Docker Compose or dev servers
 
 ## Next Steps
 
