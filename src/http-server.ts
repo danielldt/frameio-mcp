@@ -441,31 +441,38 @@ class FrameIOMCPHTTPServer {
   }
 
   private async handleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
+    const url = req.url || '/';
+    const method = req.method || 'GET';
+    const acceptHeader = req.headers.accept || '';
+    const contentType = req.headers['content-type'] || '';
+
     // Handle CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization');
 
-    if (req.method === 'OPTIONS') {
+    if (method === 'OPTIONS') {
       res.writeHead(200);
       res.end();
       return;
     }
 
     // Health check endpoint
-    if (req.url === '/health' && req.method === 'GET') {
+    if (url === '/health' && method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ status: 'ok', service: 'frameio-mcp' }));
       return;
     }
 
-    const url = req.url || '/';
-    const acceptHeader = req.headers.accept || '';
-    const wantsSSE = acceptHeader.includes('text/event-stream') || url === '/sse';
+    // Check if this is an MCP protocol request (SSE or streamableHttp)
+    const wantsSSE = acceptHeader.includes('text/event-stream') || 
+                     url === '/sse' || 
+                     url.startsWith('/mcp') ||
+                     contentType.includes('application/json');
 
-    // Handle POST requests - MCP protocol over HTTP/SSE
-    if (req.method === 'POST') {
-      // For MCP HTTP/SSE, POST requests should always return SSE
+    // Handle POST/PUT requests - MCP protocol messages
+    if ((method === 'POST' || method === 'PUT') && (wantsSSE || contentType.includes('application/json'))) {
+      // Always return SSE for MCP protocol requests
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
@@ -501,9 +508,9 @@ class FrameIOMCPHTTPServer {
       return;
     }
 
-    // Handle GET requests - SSE connection establishment
-    if (req.method === 'GET' && (url === '/' || url === '/sse')) {
-      // Always return SSE for GET requests to root or /sse
+    // Handle GET requests - SSE connection establishment for MCP
+    if (method === 'GET' && (url === '/' || url === '/sse' || url.startsWith('/mcp') || wantsSSE)) {
+      // Always return SSE for GET requests that want SSE or MCP endpoints
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
@@ -529,6 +536,31 @@ class FrameIOMCPHTTPServer {
         res.end();
       });
 
+      return;
+    }
+
+    // Default: return SSE for any other request (Cursor might try different endpoints)
+    if (method === 'GET') {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+      });
+      res.write('data: {"type":"connection","status":"connected"}\n\n');
+      
+      const keepAlive = setInterval(() => {
+        try {
+          res.write(': keep-alive\n\n');
+        } catch (e) {
+          clearInterval(keepAlive);
+        }
+      }, 30000);
+
+      req.on('close', () => {
+        clearInterval(keepAlive);
+        res.end();
+      });
       return;
     }
 
@@ -559,8 +591,15 @@ class FrameIOMCPHTTPServer {
         };
       }
 
-      // Route to stored handlers
-      const handler = this.handlers.get(message.method);
+      // Handle notifications (no response needed)
+      if (!message.id) {
+        return null;
+      }
+
+      // Route to stored handlers using MCP method names
+      const method = message.method;
+      const handler = this.handlers.get(method);
+      
       if (handler) {
         const result = await handler({ params: message.params || {} });
         return {
@@ -570,11 +609,13 @@ class FrameIOMCPHTTPServer {
         };
       }
 
-      throw new Error(`Unknown method: ${message.method}`);
+      // If no handler found, try to use the server's request handler directly
+      // This handles cases where the method might be called differently
+      throw new Error(`Unknown method: ${method}`);
     } catch (error) {
       return {
         jsonrpc: '2.0',
-        id: message.id,
+        id: message.id || null,
         error: {
           code: -32603,
           message: error instanceof Error ? error.message : String(error),
