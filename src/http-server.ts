@@ -444,7 +444,7 @@ class FrameIOMCPHTTPServer {
     // Handle CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
 
     if (req.method === 'OPTIONS') {
       res.writeHead(200);
@@ -459,8 +459,13 @@ class FrameIOMCPHTTPServer {
       return;
     }
 
-    // SSE endpoint for MCP - handle POST requests with SSE response
-    if (req.url === '/sse' && req.method === 'POST') {
+    const url = req.url || '/';
+    const acceptHeader = req.headers.accept || '';
+    const wantsSSE = acceptHeader.includes('text/event-stream') || url === '/sse';
+
+    // Handle POST requests - MCP protocol over HTTP/SSE
+    if (req.method === 'POST') {
+      // For MCP HTTP/SSE, POST requests should always return SSE
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
@@ -469,18 +474,26 @@ class FrameIOMCPHTTPServer {
       });
 
       let body = '';
+      
       req.on('data', (chunk) => {
         body += chunk.toString();
       });
 
       req.on('end', async () => {
         try {
-          const message = JSON.parse(body || '{}');
+          const message = body ? JSON.parse(body) : {};
           const response = await this.handleMCPMessage(message);
           res.write(`data: ${JSON.stringify(response)}\n\n`);
           res.end();
         } catch (error) {
-          res.write(`data: ${JSON.stringify({ error: String(error) })}\n\n`);
+          res.write(`data: ${JSON.stringify({ 
+            jsonrpc: '2.0',
+            id: null,
+            error: {
+              code: -32700,
+              message: error instanceof Error ? error.message : String(error)
+            }
+          })}\n\n`);
           res.end();
         }
       });
@@ -488,86 +501,32 @@ class FrameIOMCPHTTPServer {
       return;
     }
 
-    // SSE endpoint for MCP - handle GET requests (for SSE connection)
-    if ((req.url === '/sse' || req.url === '/') && req.method === 'GET') {
-      // Check if client wants SSE
-      const acceptHeader = req.headers.accept || '';
-      if (acceptHeader.includes('text/event-stream')) {
-        res.writeHead(200, {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-          'Access-Control-Allow-Origin': '*',
-        });
-
-        // Send initial connection message
-        res.write('data: {"type":"connection","status":"connected"}\n\n');
-
-        // Keep connection alive
-        const keepAlive = setInterval(() => {
-          res.write(': keep-alive\n\n');
-        }, 30000);
-
-        req.on('close', () => {
-          clearInterval(keepAlive);
-          res.end();
-        });
-
-        return;
-      }
-    }
-
-    // Handle POST requests for MCP protocol (JSON-RPC)
-    if (req.method === 'POST') {
-      // Check if client wants SSE response
-      const acceptHeader = req.headers.accept || '';
-      const wantsSSE = acceptHeader.includes('text/event-stream');
-      
-      let body = '';
-      
-      req.on('data', (chunk) => {
-        body += chunk.toString();
+    // Handle GET requests - SSE connection establishment
+    if (req.method === 'GET' && (url === '/' || url === '/sse')) {
+      // Always return SSE for GET requests to root or /sse
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
       });
 
-      req.on('end', async () => {
+      // Send initial connection message
+      res.write('data: {"type":"connection","status":"connected"}\n\n');
+
+      // Keep connection alive
+      const keepAlive = setInterval(() => {
         try {
-          const message = JSON.parse(body || '{}');
-          const response = await this.handleMCPMessage(message);
-          
-          if (wantsSSE) {
-            res.writeHead(200, {
-              'Content-Type': 'text/event-stream',
-              'Cache-Control': 'no-cache',
-              'Connection': 'keep-alive',
-              'Access-Control-Allow-Origin': '*',
-            });
-            res.write(`data: ${JSON.stringify(response)}\n\n`);
-            res.end();
-          } else {
-            res.writeHead(200, { 
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
-            });
-            res.end(JSON.stringify(response));
-          }
-        } catch (error) {
-          if (wantsSSE) {
-            res.writeHead(200, {
-              'Content-Type': 'text/event-stream',
-              'Cache-Control': 'no-cache',
-              'Connection': 'keep-alive',
-              'Access-Control-Allow-Origin': '*',
-            });
-            res.write(`data: ${JSON.stringify({ error: String(error) })}\n\n`);
-            res.end();
-          } else {
-            res.writeHead(500, { 
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
-            });
-            res.end(JSON.stringify({ error: String(error) }));
-          }
+          res.write(': keep-alive\n\n');
+        } catch (e) {
+          // Connection closed
+          clearInterval(keepAlive);
         }
+      }, 30000);
+
+      req.on('close', () => {
+        clearInterval(keepAlive);
+        res.end();
       });
 
       return;
