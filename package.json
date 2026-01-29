@@ -1,0 +1,29 @@
+{
+  "name": "@frameio/mcp",
+  "version": "1.0.0",
+  "description": "MCP server for FrameIO module creation and validation",
+  "type": "module",
+  "main": "./dist/server.js",
+  "bin": {
+    "frameio-mcp": "./dist/server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.5.0",
+    "fs-extra": "^11.2.0",
+    "glob": "^10.3.10",
+    "typescript": "^5.3.3"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/glob": "^8.1.0",
+    "@types/node": "^20.10.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
