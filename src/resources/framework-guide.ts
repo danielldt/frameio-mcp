@@ -417,6 +417,167 @@ const widgets = [
 
 Widget types: \`stat\`, \`table\`, \`list\`, \`chart\`
 
+## Atomic Operations & Concurrency Control
+
+FrameIO provides atomic operations for safe concurrent data updates, essential for inventory management, stock control, and multi-user scenarios.
+
+### Atomic Increment/Decrement
+
+Safe stock updates that prevent race conditions:
+
+\`\`\`typescript
+import { useAtomicIncrement } from '@frameio/sdk';
+
+function StockManager({ productId }) {
+  const { increment, decrement, isLoading } = useAtomicIncrement('pos.product', productId);
+  
+  // Decrement stock only if sufficient quantity exists
+  const handleSale = async (quantity: number) => {
+    const result = await decrement('stock_quantity', quantity, {
+      conditions: { stock_quantity: { gte: quantity } }
+    });
+    
+    if (!result?.success) {
+      console.error('Insufficient stock');
+    }
+  };
+  
+  // Increment for restocking
+  await increment('stock_quantity', 100);
+}
+\`\`\`
+
+### Atomic Multi-Field Updates
+
+Update multiple fields atomically with conditions:
+
+\`\`\`typescript
+import { useAtomicUpdate } from '@frameio/sdk';
+
+const { updateAtomically } = useAtomicUpdate('pos.order');
+
+// Update only if status is still 'pending'
+await updateAtomically(orderId, [
+  { field: 'status', operation: 'set', value: 'processing' },
+  { field: 'processed_at', operation: 'set', value: new Date().toISOString() },
+  { field: 'attempts', operation: 'increment', value: 1 },
+], {
+  conditions: { status: { eq: 'pending' } }
+});
+\`\`\`
+
+### Compare-and-Swap
+
+Optimistic concurrency control:
+
+\`\`\`typescript
+const { compareAndSwap } = useAtomicUpdate('pos.order');
+
+// Only update if current value matches expected
+const result = await compareAndSwap(recordId, 'status', 'pending', 'processing');
+if (!result?.success) {
+  console.log('Record was modified by another user');
+}
+\`\`\`
+
+### Pessimistic Locking
+
+Lock records during critical updates:
+
+\`\`\`typescript
+import { useLockedUpdate } from '@frameio/sdk';
+
+const { updateWithLock } = useLockedUpdate('pos.product');
+
+// Acquire exclusive lock, update, and release
+const result = await updateWithLock(productId, { price: 99.99 }, {
+  lockMode: 'update',    // Exclusive lock
+  waitMode: 'nowait',    // Fail if already locked
+  timeout: 5000,         // 5 second timeout
+});
+\`\`\`
+
+### Batch Atomic Operations
+
+Multiple operations across entities in a single transaction:
+
+\`\`\`typescript
+import { useBatchAtomicOperations } from '@frameio/sdk';
+
+const { executeBatch } = useBatchAtomicOperations();
+
+// All or nothing - rollback if any operation fails
+await executeBatch({
+  operations: [
+    { type: 'increment', entityKey: 'pos.product', recordId: 'p1', field: 'stock', amount: -1 },
+    { type: 'create', entityKey: 'pos.order_item', data: { product_id: 'p1', quantity: 1 } }
+  ],
+  continueOnError: false
+});
+\`\`\`
+
+### Stock Management Hook
+
+Specialized hook for inventory:
+
+\`\`\`typescript
+import { useStockManagement } from '@frameio/sdk';
+
+const { decrementStock, incrementStock, checkStock } = useStockManagement('pos.product');
+
+// Check before decrementing
+const hasStock = await checkStock(productId, 'stock_quantity', 5);
+if (hasStock) {
+  await decrementStock(productId, 'stock_quantity', 5, 0); // min threshold = 0
+}
+\`\`\`
+
+### API Endpoints
+
+Direct API access for atomic operations:
+
+\`\`\`http
+# Atomic field update
+POST /api/v1/data/:entityKey/:id/atomic
+{
+  "operations": [{ "field": "stock", "operation": "decrement", "value": 1 }],
+  "conditions": { "stock": { "gte": 1 } }
+}
+
+# Atomic increment
+POST /api/v1/data/:entityKey/:id/increment
+{ "field": "stock", "amount": -1, "conditions": { "stock": { "gte": 1 } } }
+
+# Compare-and-swap
+POST /api/v1/data/:entityKey/:id/compare-and-swap
+{ "field": "status", "expectedValue": "pending", "newValue": "processing" }
+
+# Update with lock
+POST /api/v1/data/:entityKey/:id/with-lock
+{ "data": { ... }, "lockMode": "update", "waitMode": "nowait" }
+
+# Batch atomic
+POST /api/v1/data/batch/atomic
+{ "operations": [...], "continueOnError": false }
+\`\`\`
+
+### Optimistic Locking (Version Field)
+
+Enable version-based conflict detection:
+
+\`\`\`typescript
+// Entity with versioning enabled
+const productEntity = defineEntity('pos.product')
+  // ... fields
+  .build();
+
+// Update with version check
+const { updateAtomically } = useAtomicUpdate('pos.product');
+await updateAtomically(recordId, operations, {
+  version: currentVersion // Fails if version mismatch
+});
+\`\`\`
+
 ## Development Tools
 
 ### Storybook
