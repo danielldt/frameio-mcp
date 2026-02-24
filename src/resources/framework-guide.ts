@@ -578,6 +578,86 @@ await updateAtomically(recordId, operations, {
 });
 \`\`\`
 
+## Plugin System
+
+### Plugin vs Module
+- **Modules**: Domain-specific data and workflows (e.g., CRM, Inventory, POS)
+- **Plugins**: Platform-level extensions (e.g., OAuth, Integrations, Data Orchestrator)
+- Plugins can modify the sidebar, header, login page, and register custom backend routes
+- Plugins manage their own database tables via self-contained migrations
+
+### Plugin Structure
+\`\`\`
+plugins/my-plugin/
+├── package.json
+├── tsconfig.json
+├── tsconfig.build.json
+└── src/
+    ├── index.ts          # Plugin definition (REQUIRED)
+    ├── migrations.ts     # Database migrations (optional)
+    ├── routes.ts         # Backend API routes (optional)
+    └── components/       # React components
+\`\`\`
+
+### Plugin Registration
+
+Plugins are registered in \`plugins/.registry.ts\`:
+\`\`\`typescript
+export const registeredPlugins = [
+  { pluginId: 'my-plugin', importPath: '../../plugins/my-plugin/src' },
+] as const;
+\`\`\`
+
+### Plugin Migrations
+
+Plugins define their own database tables using \`definePluginMigration()\`:
+\`\`\`typescript
+import { definePluginMigration } from '@frameio/sdk';
+
+definePluginMigration({
+  pluginId: 'my-plugin',
+  version: '1.0.0',
+  description: 'Create initial tables',
+  up: async (ctx) => {
+    await ctx.sql(\`CREATE TABLE IF NOT EXISTS plugin_my_plugin_items (...)\`);
+  },
+  down: async (ctx) => {
+    await ctx.sql('DROP TABLE IF EXISTS plugin_my_plugin_items CASCADE');
+  },
+});
+\`\`\`
+
+### Table Naming Convention
+- All plugin tables MUST follow: \`plugin_{plugin_id}_{table_name}\`
+- Example: \`plugin_oauth_providers\`, \`plugin_integration_tokens\`
+
+### Plugin Backend Routes
+
+Plugins can register custom Express routes:
+\`\`\`typescript
+// src/routes.ts
+export function registerRoutes(router: Router) {
+  router.get('/items', async (req, res) => { ... });
+  router.post('/items', async (req, res) => { ... });
+}
+\`\`\`
+
+Routes are automatically mounted at \`/api/v1/plugins/{plugin-id}/\`.
+
+### Plugin Builder API
+\`\`\`typescript
+createPlugin({ id, version, displayName, description, icon, author })
+  .registerMigrations(migrations)
+  .registerBackendRoute({ path, requireAuth, requireTenant })
+  .registerPermissions([{ key, name, description }])
+  .registerSidebarItem({ key, label, icon, path, permission, order })
+  .registerRoute({ path, component, permission, index })
+  .registerCommand({ key, label, description, icon, action, path, category, keywords })
+  .build();
+\`\`\`
+
+For full plugin documentation, see \`frameio://plugin-guide\`.
+
 ## Development Tools
 
 ### Storybook
@@ -588,16 +668,19 @@ FrameIO includes Storybook for component development:
 
 ### Database Migrations
 FrameIO uses a versioned migration system:
-- Migrations in \`apps/api/src/db/migrate.ts\`
-- Version tracking with \`migration_history\` table
+- Platform migrations in \`apps/api/src/db/migrate.ts\`
+- Plugin migrations in each plugin's \`src/migrations.ts\` (self-contained)
+- Version tracking with \`migration_history\` (platform) and \`plugin_migration_history\` (plugins)
 - Rollback support: \`npm run migrate:rollback -w @frameio/api\`
 - Only pending migrations are executed automatically
 
-### Module Discovery
+### Module & Plugin Discovery
 - Modules are dynamically discovered from \`modules/.registry.ts\`
+- Plugins are dynamically discovered from \`plugins/.registry.ts\`
 - Frontend imports are auto-generated via \`npm run generate:imports\`
+- Plugin imports are auto-generated via \`npm run generate:plugin-imports\`
 - Vite config is auto-updated via \`npm run generate:vite-config\`
 - Dependencies are auto-synced via \`npm run sync:dependencies\`
-- These run automatically via \`predev\` and \`prebuild\` hooks
+- Docker builds run these during image build
 `;
 }

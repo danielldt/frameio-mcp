@@ -321,5 +321,59 @@ Before completing a module:
 - [ ] Registry entry added
 - [ ] TypeScript compiles without errors
 - [ ] Module loads without errors
+
+## Plugin Best Practices
+
+### Plugin ID Naming
+- Use **kebab-case**: \`my-plugin\`, \`data-orchestrator\`, \`oauth\`
+- Same conventions as module IDs
+- Must be unique across all plugins
+
+### Plugin Table Naming
+- ALL tables MUST use: \`plugin_{plugin_id}_{table_name}\`
+- Replace hyphens with underscores in plugin ID: \`my-plugin\` → \`plugin_my_plugin_*\`
+- Always include \`tenant_id\`, \`created_at\`, \`updated_at\` columns
+- Always create an index on \`tenant_id\`
+
+### Plugin Migration Best Practices
+- Always define \`down\` migrations (required for clean removal)
+- Use semantic versioning: \`1.0.0\`, \`1.1.0\`, \`2.0.0\`
+- Make migrations idempotent: Use \`IF NOT EXISTS\` / \`IF EXISTS\`
+- Create indexes in the same migration that creates the table
+- Test both \`up\` and \`down\` paths
+
+### Plugin Route Best Practices
+- Export exactly \`registerRoutes(router: Router)\` from \`routes.ts\`
+- Use \`req.context.tenantId\` and \`req.context.userId\` (not \`req.tenantId\`)
+- Handle errors with try/catch and return proper status codes
+- Only query your own plugin's tables (\`plugin_{id}_*\`)
+
+### Plugin UI Best Practices
+- Use CSS variables for theming: \`var(--theme-text-primary)\`, \`var(--theme-bg-secondary)\`
+- Never use hardcoded colors that break in light/dark mode
+- Register sidebar items with appropriate permissions
+- Register command palette entries for quick navigation
+
+### Plugin Self-Containment
+- **DO NOT** modify core platform files
+- **DO NOT** import from other plugins (each plugin is independent)
+- **DO NOT** use platform table names (use \`plugin_*\` prefix)
+- **DO** keep all plugin code in \`plugins/{plugin-id}/\`
+- **DO** register everything through the plugin builder API
+
+### Plugin Testing Checklist
+
+- [ ] Plugin ID matches directory name
+- [ ] Package name follows \`@frameio/{plugin-id}\` convention
+- [ ] All tables use \`plugin_{id}_\` prefix
+- [ ] Migrations have both \`up\` and \`down\` functions
+- [ ] Routes export \`registerRoutes\` function
+- [ ] Permissions registered for all access levels
+- [ ] Sidebar item and commands registered
+- [ ] TypeScript compiles without errors
+- [ ] Plugin loads without errors
+- [ ] Database tables created successfully
+- [ ] API routes respond correctly
+- [ ] UI renders in both light and dark themes
 `;
 }

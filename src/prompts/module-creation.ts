@@ -7,7 +7,7 @@ export function getModuleCreationGuide(args: {
 
   const content = `# FrameIO Module Creation Guide
 
-Follow these steps to create a new FrameIO module:
+Follow these steps to create a new FrameIO module. For design philosophy and platform rules (modules vs plugins, no domain in core), read the \`frameio://architecture\` resource.
 
 ## Step 1: Planning
 
