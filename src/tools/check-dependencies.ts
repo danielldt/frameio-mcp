@@ -43,10 +43,10 @@ export async function checkDependencies(args: CheckDependenciesArgs): Promise<st
     return formatIssues(moduleId, issues);
   }
 
-  const packageJson = await fs.readJson(packageJsonPath);
-  const dependencies = packageJson.dependencies || {};
-  const devDependencies = packageJson.devDependencies || {};
-  const peerDependencies = packageJson.peerDependencies || {};
+  const packageJson = await fs.readJson(packageJsonPath) as Record<string, unknown>;
+  const dependencies = (packageJson.dependencies || {}) as Record<string, string>;
+  const devDependencies = (packageJson.devDependencies || {}) as Record<string, string>;
+  const peerDependencies = (packageJson.peerDependencies || {}) as Record<string, string>;
 
   // Read root package.json for comparison
   const rootPackageJsonPath = path.join(process.cwd(), 'package.json');
@@ -61,8 +61,8 @@ export async function checkDependencies(args: CheckDependenciesArgs): Promise<st
   
   let sdkPeerDeps: Record<string, string> = {};
   if (await fs.pathExists(sdkPackageJsonPath)) {
-    const sdkPackageJson = await fs.readJson(sdkPackageJsonPath);
-    sdkPeerDeps = sdkPackageJson.peerDependencies || {};
+    const sdkPackageJson = await fs.readJson(sdkPackageJsonPath) as Record<string, unknown>;
+    sdkPeerDeps = (sdkPackageJson.peerDependencies || {}) as Record<string, string>;
   }
 
   // Check required framework dependencies
@@ -96,7 +96,7 @@ export async function checkDependencies(args: CheckDependenciesArgs): Promise<st
         severity: 'warning',
         package: dep,
         message: `Version mismatch with root: module has ${version}, root has ${rootVersion}`,
-        currentVersion: version as string,
+        currentVersion: version,
         expectedVersion: rootVersion,
         location: 'dependencies',
       });
