@@ -56,6 +56,12 @@ This document is the **canonical** reference for how the platform is designed. W
 - Do **not** import \`PluginApiDeps\` or backend-only types from \`@frameio/shared\` in route files; use \`@frameio/sdk\` so the plugin builds against the same contract the API uses.
 - Type all route handlers: avoid implicit \`any\` in \`createRouter\` and in callback parameters (e.g. \`req\`, \`res\`).
 
+### Plugin background workers
+- Plugins that need **background workers** (scheduled jobs, event handlers, escalation runners, etc.) must export \`startBackgroundWorkers(deps: PluginApiDeps): void\` from \`routes.ts\`.
+- The platform calls \`startBackgroundWorkers\` for each plugin that exports it. Workers run either **embedded** (in the API process) or **standalone** (in a separate runner container), controlled by \`RUNNER_MODE\` (embedded | standalone | none).
+- A single **unified runner** process loads all plugins and starts workers for each; the runner is generic, not tied to any specific plugin.
+- Examples: \`data-orchestrator\` (execution, schedule, event runners), \`approvals\` (escalation, event-trigger handlers).
+
 ---
 
 ## 3. What AI / MCP Must Enforce
@@ -66,5 +72,6 @@ When generating or validating:
 2. **Plugins**: Backend routes use \`createRouter(deps: PluginApiDeps)\`; use \`deps.db\` (and optionally \`deps.registerWidgetDataProvider\`); no \`registerRoutes(router)\`; explicit types; \`tsconfig.build.json\` present.
 3. **Core / seed**: No hardcoded domain permission keys or widget keys; use \`ModuleRegistry.getPermissions()\` and plugin registry for permissions.
 4. **Widget data**: Custom widget data only via plugins’ \`registerWidgetDataProvider\`; never in core or modules.
+5. **Background workers**: Plugins with workers export \`startBackgroundWorkers(deps)\` from \`routes.ts\`; the platform or runner calls it. Use \`RUNNER_MODE\` to control embedded vs standalone.
 `;
 }

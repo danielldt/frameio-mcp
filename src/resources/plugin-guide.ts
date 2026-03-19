@@ -162,6 +162,22 @@ export function createRouter(deps: PluginApiDeps) {
 
 **Important:** Do **not** use \`registerRoutes(router: Router)\`. The platform expects \`createRouter\` (or default export) and injects \`deps\`; only this way can your plugin use \`deps.db\`, \`deps.Errors\`, and \`deps.registerWidgetDataProvider\` without importing from the API package.
 
+### Step 4b: Background Workers (Optional)
+
+If your plugin needs **background workers** (scheduled jobs, event handlers, escalation runners, etc.), export \`startBackgroundWorkers(deps: PluginApiDeps): void\` from \`routes.ts\`:
+
+\`\`\`typescript
+// In routes.ts, alongside createRouter
+export function startBackgroundWorkers(deps: PluginApiDeps): void {
+  startMyScheduler(deps);
+  startMyEventHandler(deps);
+}
+\`\`\`
+
+- The platform calls \`startBackgroundWorkers\` for each plugin that exports it.
+- Workers run **embedded** (in the API process) or **standalone** (in a separate runner container), controlled by \`RUNNER_MODE\` (embedded | standalone | none).
+- A single **unified runner** loads all plugins and starts workers for each. Examples: \`data-orchestrator\`, \`approvals\`.
+
 ### Step 5: Create Plugin Definition
 
 \`\`\`typescript
@@ -325,7 +341,8 @@ When the platform starts:
 2. Runs pending database migrations
 3. Registers backend API routes at \`/api/v1/plugins/{plugin-id}/\`
 4. Loads frontend components and registers UI elements
-5. No core platform code changes needed!
+5. Starts background workers for plugins that export \`startBackgroundWorkers(deps)\` (embedded or standalone via \`RUNNER_MODE\`)
+6. No core platform code changes needed!
 
 ## Best Practices
 
@@ -337,5 +354,6 @@ When the platform starts:
 6. **Export \`createRouter(deps: PluginApiDeps)\` from routes.ts** — The platform calls this and injects \`deps\`; do not use \`registerRoutes(router)\`
 7. **Import \`PluginApiDeps\` from \`@frameio/sdk\`** — So backend route code builds against the same contract the API uses
 8. **Use \`tsconfig.build.json\`** — For backend compilation to \`dist/\`; type route handlers explicitly (no implicit \`any\`)
+9. **Background workers** — If your plugin needs scheduled jobs, event handlers, or escalation logic, export \`startBackgroundWorkers(deps)\` from \`routes.ts\`; the platform or runner will call it
 `;
 }

@@ -5,6 +5,7 @@ interface GeneratePluginArgs {
   author?: string;
   includeMigrations?: boolean;
   includeRoutes?: boolean;
+  includeBackgroundWorkers?: boolean;
   tables?: Array<{
     name: string;
     columns: Array<{
@@ -31,6 +32,7 @@ export async function generatePlugin(
     author = "FrameIO Developer",
     includeMigrations = true,
     includeRoutes = true,
+    includeBackgroundWorkers = false,
     tables = [],
     permissions = [
       { key: "read", name: "View", description: `View ${displayName} data` },
@@ -194,15 +196,13 @@ ${dropStatements}
 
   // Generate routes.ts (createRouter(deps) contract; PluginApiDeps from @frameio/sdk)
   let routesCode = "";
-  if (includeRoutes) {
+  if (includeRoutes || includeBackgroundWorkers) {
     const mainTable =
       tables.length > 0
         ? `${tablePrefix}_${tables[0].name}`
         : `${tablePrefix}_items`;
-    routesCode = `// plugins/${pluginId}/src/routes.ts
-import type { PluginApiDeps } from '@frameio/sdk';
-
-export function createRouter(deps: PluginApiDeps) {
+    const createRouterBlock = includeRoutes
+      ? `export function createRouter(deps: PluginApiDeps) {
   const router = deps.Router();
   const { db, Errors, requirePermission } = deps;
 
@@ -237,6 +237,24 @@ export function createRouter(deps: PluginApiDeps) {
 
   return router;
 }
+`
+      : includeBackgroundWorkers
+        ? `export function createRouter(deps: PluginApiDeps) {
+  return deps.Router(); // No HTTP routes; plugin uses background workers only
+}
+`
+        : "";
+    const startBackgroundWorkersBlock = includeBackgroundWorkers
+      ? `
+export function startBackgroundWorkers(deps: PluginApiDeps): void {
+  // TODO: Start your scheduled jobs, event handlers, or escalation runners here
+  // Example: startScheduler(deps); startEventHandler(deps);
+}
+`
+      : "";
+    routesCode = `// plugins/${pluginId}/src/routes.ts
+import type { PluginApiDeps } from '@frameio/sdk';
+${createRouterBlock}${startBackgroundWorkersBlock}
 `;
   }
 
@@ -266,7 +284,7 @@ export const ${camelId}Plugin = createPlugin({
 })
 ${includeMigrations ? `  .registerMigrations(${camelId}Migrations)` : ""}
 ${
-  includeRoutes
+  includeRoutes || includeBackgroundWorkers
     ? `  .registerBackendRoute({
     path: '${pluginId}',
     requireAuth: true,
@@ -341,7 +359,7 @@ plugins/${pluginId}/
 ├── tsconfig.build.json
 └── src/
     ├── index.ts${includeMigrations ? "\n    ├── migrations.ts" : ""}${
-    includeRoutes ? "\n    ├── routes.ts" : ""
+    includeRoutes || includeBackgroundWorkers ? "\n    ├── routes.ts" : ""
   }
     └── components/
         ├── index.ts
@@ -380,7 +398,7 @@ ${migrationsCode}
 `;
   }
 
-  if (includeRoutes) {
+  if (includeRoutes || includeBackgroundWorkers) {
     output += `
 ### src/routes.ts
 \`\`\`typescript
@@ -418,7 +436,12 @@ ${
 1. **Database**: Migrations run at startup, creating \`${tablePrefix}_*\` tables
 2. **Routes**: API endpoints mounted at \`/api/v1/plugins/${pluginId}/\`
 3. **UI**: Sidebar item, command palette entry, and page route registered
-4. **Permissions**: \`${pluginId}.read\` and \`${pluginId}.manage\` available in role configuration
+4. **Permissions**: \`${pluginId}.read\` and \`${pluginId}.manage\` available in role configuration${
+  includeBackgroundWorkers
+    ? `
+5. **Background workers**: \`startBackgroundWorkers(deps)\` called by platform or runner (set \`RUNNER_MODE\` for embedded/standalone)`
+    : ""
+}
 `;
 
   return output;

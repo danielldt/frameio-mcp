@@ -867,6 +867,12 @@ class FrameIOMCPServer {
                 description: "Generate backend route file (default: true)",
                 default: true,
               },
+              includeBackgroundWorkers: {
+                type: "boolean",
+                description:
+                  "Generate startBackgroundWorkers stub for scheduled jobs, event handlers, or escalation logic (default: false)",
+                default: false,
+              },
               tables: {
                 type: "array",
                 description:

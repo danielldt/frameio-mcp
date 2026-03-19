@@ -129,6 +129,19 @@ export async function validatePlugin(
       if (hasCreateRouter && hasNoRegisterRoutes) {
         result.checks.routeContract = true;
       }
+      // Optional: validate startBackgroundWorkers if present
+      if (routesContent.includes("startBackgroundWorkers")) {
+        const hasValidStartBackgroundWorkers =
+          /export\s+function\s+startBackgroundWorkers\s*\(\s*deps\s*:\s*PluginApiDeps\s*\)\s*:\s*void/.test(
+            routesContent
+          ) ||
+          routesContent.includes("startBackgroundWorkers(deps");
+        if (!hasValidStartBackgroundWorkers) {
+          result.warnings.push(
+            "startBackgroundWorkers should have signature (deps: PluginApiDeps): void"
+          );
+        }
+      }
     } catch (error) {
       result.errors.push(
         `Route contract check failed: ${error instanceof Error ? error.message : String(error)}`

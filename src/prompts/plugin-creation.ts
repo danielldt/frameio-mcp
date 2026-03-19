@@ -126,6 +126,7 @@ Add to \`plugins/.registry.ts\`:
   ).replace(/-/g, "_")}_\`
 - **Always define \`down\` migrations**: Required for clean plugin removal
 - **Export \`createRouter(deps: PluginApiDeps)\` from routes.ts**: The platform calls this and injects \`deps\`; do not use \`registerRoutes(router)\`
+- **Background workers**: If the plugin needs scheduled jobs, event handlers, or escalation logic, export \`startBackgroundWorkers(deps: PluginApiDeps): void\` from routes.ts (use \`includeBackgroundWorkers: true\` in generate_plugin)
 - **Import PluginApiDeps from \`@frameio/sdk\`**: Required for correct build contract
 - **Never modify core platform code**: Your plugin should be fully self-contained
 - **Use \`tsconfig.build.json\`**: For compiling routes to \`dist/\`
