@@ -81,16 +81,17 @@ Generate entity definition code.
 
 Validate module structure and code.
 
-**Parameters:**
+**Parameters (choose one mode):**
 
-- `modulePath` (string, required): Path to module directory
+- **Local:** `modulePath` (string): Path to module directory (relative to the process cwd, usually the FrameIO repo root).
+- **Remote / hosted MCP:** `files` (object): Map of relative paths to UTF-8 file text. Must include at least `package.json` and `src/index.ts`. Optional `moduleId` if the package name is non-standard; optional `registryContent` with the full text of `modules/.registry.ts` to verify registration.
 - `strict` (boolean, default: false): Enable strict validation
 
 **Returns:** Validation results with errors, warnings, and checks
 
 ### 4. `get_example_module`
 
-Fetch example code from existing modules.
+Fetch example module source. If the MCP process has a FrameIO checkout, examples are read from `modules/`. Otherwise (e.g. Railway-hosted MCP) the server returns **bundled** samples (`rewards`, `bom`, `calendar-demo`).
 
 **Parameters:**
 

@@ -75,7 +75,7 @@ export async function findExamplesByFeature(feature: string): Promise<ExampleMod
   return results;
 }
 
-function extractFeatures(content: string): string[] {
+export function extractFeatures(content: string): string[] {
   const features: string[] = [];
 
   if (content.includes('defineEntity')) features.push('entities');

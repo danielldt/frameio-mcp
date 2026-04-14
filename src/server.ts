@@ -174,14 +174,31 @@ class FrameIOMCPServer {
         },
         {
           name: "validate_module",
-          description: "Validate module structure, code, and conventions",
+          description:
+            "Validate module structure, code, and conventions. Use modulePath when the MCP runs with cwd at the FrameIO repo root. Use files (package.json + src/index.ts contents) when the MCP is remote or cannot read your disk.",
           inputSchema: {
             type: "object",
             properties: {
               modulePath: {
                 type: "string",
                 description:
-                  "Path to module directory (relative to project root)",
+                  "Path to module directory (relative to project root). Omit when using files.",
+              },
+              files: {
+                type: "object",
+                additionalProperties: { type: "string" },
+                description:
+                  "Remote mode: map of relative file path to UTF-8 contents. Must include package.json and src/index.ts.",
+              },
+              moduleId: {
+                type: "string",
+                description:
+                  "Optional kebab-case id when using files; inferred from package.json name @frameio/<id> if omitted.",
+              },
+              registryContent: {
+                type: "string",
+                description:
+                  "Optional full text of modules/.registry.ts for registration check when the MCP host has no copy.",
               },
               strict: {
                 type: "boolean",
@@ -189,7 +206,10 @@ class FrameIOMCPServer {
                 default: false,
               },
             },
-            required: ["modulePath"],
+            oneOf: [
+              { required: ["modulePath"] },
+              { required: ["files"] },
+            ],
           },
         },
         {

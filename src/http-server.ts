@@ -129,13 +129,28 @@ class FrameIOMCPHTTPServer {
         },
         {
           name: 'validate_module',
-          description: 'Validate module structure, code, and conventions',
+          description:
+            'Validate module structure, code, and conventions. Use modulePath for local MCP; use files (package.json + src/index.ts map) against a remote MCP.',
           inputSchema: {
             type: 'object',
             properties: {
               modulePath: {
                 type: 'string',
-                description: 'Path to module directory (relative to project root)',
+                description: 'Path to module directory (relative to project root). Omit when using files.',
+              },
+              files: {
+                type: 'object',
+                additionalProperties: { type: 'string' },
+                description:
+                  'Remote mode: relative path -> file contents. Must include package.json and src/index.ts.',
+              },
+              moduleId: {
+                type: 'string',
+                description: 'Optional; inferred from package.json @frameio/<id> when using files.',
+              },
+              registryContent: {
+                type: 'string',
+                description: 'Optional modules/.registry.ts source for registration check on remote hosts.',
               },
               strict: {
                 type: 'boolean',
@@ -143,12 +158,13 @@ class FrameIOMCPHTTPServer {
                 default: false,
               },
             },
-            required: ['modulePath'],
+            oneOf: [{ required: ['modulePath'] }, { required: ['files'] }],
           },
         },
         {
           name: 'get_example_module',
-          description: 'Fetch example code from existing modules',
+          description:
+            'Fetch example module source. Uses the repo modules/ tree when available; otherwise returns bundled examples (remote MCP).',
           inputSchema: {
             type: 'object',
             properties: {
@@ -222,13 +238,7 @@ class FrameIOMCPHTTPServer {
               content: [
                 {
                   type: 'text',
-                  text: JSON.stringify(
-                    await validateModule(
-                      args as { modulePath: string; strict?: boolean }
-                    ),
-                    null,
-                    2
-                  ),
+                  text: JSON.stringify(await validateModule(args as any), null, 2),
                 },
               ],
             };
